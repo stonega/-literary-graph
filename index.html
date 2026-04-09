@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Transform books into living 3D constellations. Literary Graph uses Gemini 3 Flash and Andrej Karpathy's LLM Knowledge Base pattern to incrementally parse EPUBs, extracting and visualizing complex character networks." />
+    <title>Literary Graph | 3D Character Network Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              paper: '#fdfbf7',
+              ink: '#1a1a1a',
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg-color: #fdfbf7;
+        --text-color: #1a1a1a;
+        --scrollbar-track: #f1f1f1;
+        --scrollbar-thumb: #c1c1c1;
+        /* Tooltip Variables - Fixed to Dark Theme for HUD consistency */
+        --tooltip-bg: rgba(20, 20, 20, 0.95);
+        --tooltip-text: #e5e5e5;
+        --tooltip-border: #444;
+      }
+
+      .dark {
+        --bg-color: #111111;
+        --text-color: #e5e5e5;
+        --scrollbar-track: #1a1a1a;
+        --scrollbar-thumb: #333;
+        /* Tooltip remains dark in dark mode */
+        --tooltip-bg: rgba(20, 20, 20, 0.95);
+        --tooltip-text: #e5e5e5;
+        --tooltip-border: #444;
+      }
+
+      body { 
+        margin: 0; 
+        overflow: hidden; 
+        background-color: var(--bg-color); 
+        color: var(--text-color); 
+        font-family: 'Crimson Pro', serif;
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+      /* Custom Scrollbar for a cleaner look */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+      ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #888; }
+
+      /* Force Graph Tooltip Customization - Adaptive Theme */
+      .scene-tooltip {
+        background: var(--tooltip-bg) !important;
+        color: var(--tooltip-text) !important;
+        padding: 10px 14px !important;
+        border-radius: 6px !important;
+        font-family: 'Crimson Pro', serif !important;
+        font-size: 14px !important;
+        border: 1px solid var(--tooltip-border) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+        max-width: 240px !important;
+        white-space: normal !important;
+        line-height: 1.5 !important;
+        pointer-events: none !important; /* Prevent tooltip blocking mouse */
+        z-index: 9999 !important;
+        overflow-wrap: break-word !important;
+        text-align: left !important;
+        backdrop-filter: blur(4px) !important;
+        transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+      }
+
+      /* Scroll Animation for Loading Text - Faster Speed (20s) */
+      @keyframes scroll-text {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(-50%); }
+      }
+      .animate-scroll-text {
+        animation: scroll-text 20s linear infinite;
+      }
+      
+      /* Utilities */
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
+      .dark .glass-panel {
+        background: rgba(20, 20, 20, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* Standard Animations */
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+      }
+
+      @keyframes scale-in {
+        from { opacity: 0; transform: scale(0.92); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-scale-in {
+        animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      /* Flowing Border Animation (Marching Ants) */
+      @keyframes border-dance {
+        0% { background-position: 0 0, 100% 0, 100% 100%, 0 100%; }
+        100% { background-position: 20px 0, 100% 20px, calc(100% - 20px) 100%, 0 calc(100% - 20px); }
+      }
+      
+      .border-flow-hover:hover, .border-flow-active {
+        --dash-color: #1a1a1a;
+        border-color: transparent !important;
+        background-image: 
+          linear-gradient(90deg, var(--dash-color) 50%, transparent 50%), 
+          linear-gradient(180deg, var(--dash-color) 50%, transparent 50%), 
+          linear-gradient(270deg, var(--dash-color) 50%, transparent 50%), 
+          linear-gradient(0deg, var(--dash-color) 50%, transparent 50%);
+        background-repeat: repeat-x, repeat-y, repeat-x, repeat-y;
+        background-size: 20px 1.5px, 1.5px 20px, 20px 1.5px, 1.5px 20px;
+        background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+        background-origin: border-box;
+        animation: border-dance 1s infinite linear;
+      }
+
+      .dark .border-flow-hover:hover, .dark .border-flow-active {
+        --dash-color: #e5e5e5;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://aistudiocdn.com/three@0.160.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "jszip": "https://aistudiocdn.com/jszip@^3.10.1",
+    "react-force-graph-3d": "https://aistudiocdn.com/react-force-graph-3d@^1.29.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^11.0.8",
+    "motion/": "https://aistudiocdn.com/motion@^12.23.25/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

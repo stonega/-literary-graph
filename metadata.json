@@ -1,0 +1,5 @@
+{
+  "name": "Literary Graph",
+  "description": "Transform books into living 3D constellations. Literary Graph uses Gemini 3 Flash and Andrej Karpathy's LLM Knowledge Base pattern to incrementally parse EPUBs, extracting and visualizing complex character networks and social structures in an immersive, interactive environment.",
+  "requestFramePermissions": []
+}
